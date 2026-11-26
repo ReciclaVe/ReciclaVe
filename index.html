@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f2f5f2">
+  <title>ReciclaVe | Gestión de residuos</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="anonymous">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="anonymous"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" crossorigin="anonymous"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f2f5f2;
+      --surface: #fff;
+      --text: #17231d;
+      --muted: #5b6b62;
+      --border: #d3ddd6;
+      --accent: #176b4f;
+      --accent-soft: #e4f1e9;
+      --danger: #b9382a;
+      --success: #176b4f;
+      --shadow: 0 8px 26px rgb(22 46 32 / 7%);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #101814;
+        --surface: #19251e;
+        --text: #e7eee9;
+        --muted: #a4b4aa;
+        --border: #304238;
+        --accent: #61c69e;
+        --accent-soft: #203a2e;
+        --danger: #ff8875;
+        --success: #61c69e;
+        --shadow: 0 8px 26px rgb(0 0 0 / 18%);
+      }
+    }
+
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #101814;
+      --surface: #19251e;
+      --text: #e7eee9;
+      --muted: #a4b4aa;
+      --border: #304238;
+      --accent: #61c69e;
+      --accent-soft: #203a2e;
+      --danger: #ff8875;
+      --success: #61c69e;
+      --shadow: 0 8px 26px rgb(0 0 0 / 18%);
+    }
+
+    :root[data-theme="light"] {
+      color-scheme: light;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 18px max(16px, calc((100vw - 1120px) / 2));
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    .demo-banner {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 9px max(16px, calc((100vw - 1120px) / 2));
+      border-bottom: 1px solid var(--border);
+      background: var(--accent-soft);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .demo-banner strong { color: var(--accent); }
+    .demo-banner p { flex: 1 1 400px; margin: 0; color: var(--muted); }
+
+    .brand h1 { margin: 0; font-size: clamp(20px, 4vw, 26px); line-height: 1.15; }
+    .brand p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
+    .role-control { display: flex; align-items: center; gap: 9px; white-space: nowrap; }
+    .role-control label { color: var(--muted); font-size: 13px; font-weight: 650; }
+
+    main { width: min(1120px, 100%); margin: 0 auto; padding: 20px 16px 40px; }
+
+    .notice {
+      display: none;
+      margin-bottom: 14px;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--accent-soft);
+      color: var(--text);
+    }
+    .notice.show { display: block; }
+    .notice.error { border-color: var(--danger); color: var(--danger); background: transparent; }
+
+    nav {
+      display: flex;
+      gap: 5px;
+      overflow-x: auto;
+      margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    nav button {
+      flex: 0 0 auto;
+      padding: 11px 14px;
+      border: 0;
+      border-bottom: 3px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    nav button[aria-selected="true"] { border-color: var(--accent); color: var(--accent); }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .card {
+      margin-bottom: 16px;
+      padding: clamp(15px, 3vw, 22px);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+    .card h2 { margin: 0 0 14px; font-size: 18px; }
+    .card h3 { margin: 18px 0 8px; font-size: 15px; }
+    .muted, .help { color: var(--muted); }
+    .help { margin: 6px 0 0; font-size: 12px; }
+
+    .map { width: 100%; height: 390px; min-height: 280px; border-radius: 10px; background: var(--accent-soft); }
+    .map-status { margin-top: 10px; color: var(--muted); font-size: 13px; }
+    .toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+    .toolbar p { margin: 0; }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    .field { min-width: 0; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { display: block; margin-bottom: 5px; font-size: 13px; font-weight: 700; }
+    .location-simulator { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; align-items: end; gap: 10px; margin: 14px 0; }
+
+    input, select {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 11px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg);
+      color: var(--text);
+    }
+    input[type="range"] { min-height: 28px; padding: 0; accent-color: var(--accent); }
+    input[type="file"] { padding: 7px; }
+    .photo-preview { display: none; width: min(100%, 340px); max-height: 220px; margin-top: 8px; border: 1px solid var(--border); border-radius: 8px; object-fit: contain; background: var(--bg); }
+    .photo-preview.visible { display: block; }
+    input:focus, select:focus, button:focus-visible { outline: 3px solid color-mix(in srgb, var(--accent) 40%, transparent); outline-offset: 2px; }
+
+    .button {
+      min-height: 42px;
+      padding: 9px 14px;
+      border: 1px solid var(--accent);
+      border-radius: 8px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 750;
+    }
+    .button.secondary { background: var(--accent-soft); color: var(--accent); }
+    .button:disabled { cursor: not-allowed; opacity: .6; }
+
+    .balance { color: var(--accent); font-size: clamp(32px, 8vw, 48px); font-weight: 850; line-height: 1.1; }
+    .wallet-layout { display: grid; grid-template-columns: minmax(0, 1fr) 150px; align-items: center; gap: 18px; }
+    #qr { display: flex; justify-content: center; align-items: center; min-height: 140px; padding: 10px; border-radius: 10px; background: #fff; }
+    .scan-result { margin-top: 10px; padding: 12px; border: 1px solid var(--accent); border-radius: 9px; background: var(--accent-soft); }
+    .scan-result span { display: block; color: var(--muted); font-size: 12px; }
+    .scan-result strong { display: block; margin-top: 3px; color: var(--accent); font-size: 19px; }
+    #qr img, #qr canvas { max-width: 100%; }
+    .redeem-key { display: none; margin-top: 14px; padding: 16px; border: 2px dashed var(--accent); border-radius: 10px; background: var(--accent-soft); text-align: center; }
+    .redeem-key.show { display: block; }
+    .redeem-key code { display: block; margin-top: 5px; color: var(--accent); font: 850 24px/1.3 ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .06em; }
+
+    .history-list { display: grid; gap: 9px; padding: 0; margin: 0; list-style: none; }
+    .history-list li { padding: 10px 0; border-top: 1px solid var(--border); }
+    .history-list li:first-child { border-top: 0; }
+    .history-list small { display: block; margin-top: 3px; color: var(--muted); }
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px 8px; border-bottom: 1px solid var(--border); text-align: left; }
+    th { color: var(--muted); font-size: 12px; }
+    @media (max-width: 640px) {
+      .app-header { align-items: flex-start; flex-direction: column; padding: 15px 16px; }
+      .role-control { width: 100%; justify-content: space-between; }
+      .grid { grid-template-columns: 1fr; }
+      .location-simulator { grid-template-columns: 1fr 1fr; }
+      .location-simulator button { grid-column: 1 / -1; }
+      .field.full { grid-column: auto; }
+      .map { height: 330px; }
+      .wallet-layout { grid-template-columns: minmax(0, 1fr) 110px; }
+      #qr { min-height: 110px; }
+    }
+  </style>
+</head>
+<body>
+  <aside class="demo-banner" aria-label="Aviso de demo">
+    <strong>Beta · datos simulados en este navegador</strong>
+    <button id="reset-demo" class="button secondary" type="button">Reiniciar demo</button>
+    <span id="connectivity-status" role="status" hidden></span>
+  </aside>
+  <header class="app-header">
+    <div class="brand">
+      <h1>ReciclaVe</h1>
+      <p>Sistema inteligente de gestión y valorización de residuos</p>
+    </div>
+    <div class="role-control">
+      <label for="role-select">Ver como</label>
+      <select id="role-select" aria-label="Cambiar rol">
+        <option value="citizen">Ciudadano</option>
+        <option value="admin">Administrador</option>
+      </select>
+    </div>
+  </header>
+
+  <main>
+    <div id="notice" class="notice" role="status" aria-live="polite"></div>
+    <nav id="tabs" aria-label="Secciones"></nav>
+
+    <section id="containers-panel" class="panel active" aria-labelledby="tab-containers">
+      <div class="card">
+        <div class="toolbar">
+          <div>
+            <h2>Mapa de contenedores</h2>
+            <p class="muted">Puntos de recolección en San Antonio de los Altos.</p>
+          </div>
+          <div class="toolbar">
+            <button id="nearest-route-button" class="button" type="button">Trazar ruta al más cercano</button>
+            <button id="simulate-fill" class="button secondary" type="button" hidden>Simular llenado</button>
+          </div>
+        </div>
+        <div id="containers-map" class="map" aria-label="Mapa de puntos de recolección"></div>
+        <p id="containers-map-status" class="map-status" aria-live="polite"></p>
+        <p class="help">Puedes usar el GPS o ingresar una ubicación de prueba para trazar una ruta al punto más cercano.</p>
+        <form id="simulate-location-form" class="location-simulator">
+          <div class="field">
+            <label for="simulated-latitude">Latitud simulada</label>
+            <input id="simulated-latitude" type="number" min="-90" max="90" step="any" value="10.3745" required>
+          </div>
+          <div class="field">
+            <label for="simulated-longitude">Longitud simulada</label>
+            <input id="simulated-longitude" type="number" min="-180" max="180" step="any" value="-66.9537" required>
+          </div>
+          <button id="simulate-location-button" class="button secondary" type="submit">Trazar desde ubicación simulada</button>
+        </form>
+        <p id="nearest-route-status" class="map-status" aria-live="polite"></p>
+      </div>
+      <div class="card">
+        <h2>Niveles de llenado</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Contenedor</th><th>Sector</th><th>Coordenadas de referencia</th><th>Llenado</th></tr></thead>
+            <tbody id="containers-table"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="routes-panel" class="panel" aria-labelledby="tab-routes">
+      <div class="card">
+        <h2>Ruta de recolección</h2>
+        <p class="muted">La ruta enlaza la planta con los contenedores que superan el 80% de llenado y regresa a la planta.</p>
+        <div id="routes-map" class="map" aria-label="Mapa de ruta de recolección"></div>
+        <p id="route-status" class="map-status" aria-live="polite"></p>
+        <ol id="route-stops"></ol>
+      </div>
+    </section>
+
+    <section id="validation-panel" class="panel" aria-labelledby="tab-validation">
+      <div class="card">
+        <h2>Validar entrega y acreditar tokens</h2>
+        <p class="muted">Identifica al ciudadano escaneando el QR de su billetera o ingresando su cédula manualmente. Adjunta ambas evidencias para validar la entrega.</p>
+        <form id="deposit-form" novalidate>
+          <div class="grid">
+            <div class="field">
+              <button id="scan-qr" class="button secondary" type="button">📷 Escanear QR de Billetera</button>
+              <video id="qr-video" playsinline style="display:none; width:100%; border-radius:8px;"></video>
+              <div id="qr-fallback-reader" style="display:none; width:100%;"></div>
+              <div class="field" style="margin-top:12px">
+                <label for="manual-citizen-id">O ingresa la cédula manualmente</label>
+                <input id="manual-citizen-id" type="text" placeholder="V-12345678" autocomplete="off" maxlength="10">
+                <button id="manual-citizen-submit" class="button secondary" type="button" style="margin-top:8px">Identificar ciudadano</button>
+              </div>
+              <div id="scan-result" class="scan-result" aria-live="polite" hidden>
+                <span>C.I. del ciudadano identificada</span>
+                <strong id="scanned-citizen-id"></strong>
+              </div>
+              <p id="umsg" class="help" aria-live="polite"></p>
+            </div>
+            <div class="field">
+              <label for="container-select">Contenedor</label>
+              <select id="container-select" name="container" required></select>
+            </div>
+            <div class="field">
+              <label for="material-select">Material</label>
+              <select id="material-select" name="material" required></select>
+            </div>
+            <div class="field">
+              <label for="weight">Peso (kg)</label>
+              <input id="weight" name="weight" type="number" min="0.1" max="200" step="0.1" value="5" required>
+            </div>
+            <div class="field">
+              <label for="purity">Pureza</label>
+              <select id="purity" name="purity">
+                <option value="1">Limpio — 100%</option>
+                <option value="0.5">Contaminado — 50% de tokens</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scale-photo">Foto de la báscula (obligatoria)</label>
+              <input id="scale-photo" name="scalePhoto" type="file" accept="image/*" required>
+              <img id="scale-photo-preview" class="photo-preview" alt="Vista previa de la foto de la báscula">
+            </div>
+            <div class="field full">
+              <label for="waste-photo">Foto de la basura (obligatoria)</label>
+              <input id="waste-photo" name="wastePhoto" type="file" accept="image/*" required>
+              <img id="waste-photo-preview" class="photo-preview" alt="Vista previa de la foto de la basura">
+            </div>
+            <div class="field full">
+              <button class="button" type="submit">Validar evidencias y acreditar tokens</button>
+              <p id="deposit-message" class="help" aria-live="polite"></p>
+            </div>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="wallet-panel" class="panel" aria-labelledby="tab-wallet">
+      <div class="card">
+        <h2>Billetera ciudadana</h2>
+        <div class="grid">
+          <div class="field">
+            <label for="wallet-id">Cédula del ciudadano</label>
+            <input id="wallet-id" type="text" placeholder="V-12345678" autocomplete="off">
+          </div>
+          <div class="field" style="align-self:end">
+            <button id="load-wallet" class="button" type="button">Consultar billetera</button>
+            <button id="use-demo-citizen" class="button secondary" type="button">Usar ciudadano demo</button>
+          </div>
+        </div>
+        <div id="wallet-content" hidden>
+          <div class="wallet-layout" style="margin-top:20px">
+            <div>
+              <p id="wallet-owner" class="muted"></p>
+              <div id="wallet-balance" class="balance">0 tokens</div>
+              <p id="wallet-usd" class="muted"></p>
+            </div>
+            <div id="qr" aria-label="Código QR del ciudadano"></div>
+          </div>
+          <h3>Canjear tokens por un servicio público</h3>
+          <form id="redeem-form">
+            <div class="grid">
+              <div class="field">
+                <label for="redeem-amount">Tokens a gastar</label>
+                <input id="redeem-amount" type="number" min="1" step="1" value="100" required>
+              </div>
+              <div class="field">
+                <label for="service-select">Servicio</label>
+                <select id="service-select">
+                  <option>Tasa de Aseo</option>
+                  <option>Electricidad</option>
+                  <option>Agua</option>
+                </select>
+              </div>
+              <div class="field full">
+                <button class="button" type="submit">Canjear tokens</button>
+              </div>
+            </div>
+          </form>
+          <div id="redeem-key" class="redeem-key" aria-live="polite">
+            Clave de canje
+            <code id="redeem-code"></code>
+            <span id="redeem-detail" class="muted"></span>
+          </div>
+          <h3>Historial de movimientos</h3>
+          <ul id="history-list" class="history-list"></ul>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const STORAGE_KEY = "recicla-los-altos-v2";
+      const DEMO_CITIZEN = "V-12345678";
+      const PLANT = { name: "Planta procesadora", lat: 10.3815, lon: -66.9700 };
+      const NAMES = [
+        ["Figueroa", "Consultorio Popular sector 26", [10.3831, -66.9455]],
+        ["Figueroa", "U.E.N. Filomena Antonia Palma", [10.4158, -66.9592]],
+        ["Figueroa", "I.U.J. Dr. Federico Rivero Palacios", [10.41598, -66.95993]],
+        ["Figueroa", "Cancha de Figueroa", [10.3815, -66.9482]],
+        ["Las Minas", "Bulevar de Las Minas", [10.3744, -66.9709]],
+        ["Las Minas", "C.C. Galería Las Américas", [10.37437, -66.97107]],
+        ["Las Minas", "Parque de bolsillo (Recta Las Minas)", [10.3710375, -66.97967188]],
+        ["Las Minas", "E.B.D.N. Los Salias", [10.3768, -66.9495]],
+        ["La Morita", "C.C. La Morita", [10.36909, -66.96088]],
+        ["La Morita", "Plaza La Morita", [10.36922, -66.96041]],
+        ["La Morita", "Parque infantil La Morita", [10.3694, -66.95825]],
+        ["La Morita", "Colegio Mater Dei (Walter Dei)", [10.3702, -66.9582]],
+        ["El Faro", "C.C. El Faro", [10.3792, -66.9423]],
+        ["El Faro", "Multicentro Empresarial Aduan", [10.3795, -66.9420]],
+        ["El Faro", "Redoma de Rosalito", [10.37458, -66.95375]],
+        ["El Faro", "Parque Las Charotas", [10.3805, -66.9412]]
+      ];
+      const MATERIALS = [
+        ["Aluminio", 160],
+        ["Plásticos (PET/PE/PP)", 75],
+        ["Metales ferrosos", 30],
+        ["Papel/Cartón", 27.5],
+        ["Vidrio", 10]
+      ];
+      const CONTAINERS = NAMES.map(([sector, name, location], index) => ({
+        id: index,
+        sector,
+        name,
+        lat: location ? location[0] : null,
+        lon: location ? location[1] : null,
+        fill: Math.round(25 + (index * 37) % 70)
+      }));
+      let state = loadState();
+      let currentRole = "citizen";
+      let currentSection = "containers";
+      let walletCitizen = "";
+      let containersMap = null;
+      let routesMap = null;
+      let containerMarkers = [];
+      let routeLayers = [];
+      let routeRequestId = 0;
+      let nearestRouteLayers = [];
+      let nearestRouteRequestId = 0;
+      let nearestRouteController = null;
+      let scannerStream = null;
+      let scannerTimer = null;
+      let scannerBusy = false;
+      let scannerStarting = false;
+      let scannerFallback = null;
+      let fallbackLibraryPromise = null;
+      let scannedCitizenId = "";
+      const photoPreviewUrls = { scale: null, waste: null };
+
+      function $(id) {
+        return document.getElementById(id);
+      }
+
+      function loadState() {
+        try {
+          const stored = localStorage.getItem(STORAGE_KEY);
+          if (!stored) return createDemoState();
+          const saved = JSON.parse(stored);
+          const balances = saved.balances && typeof saved.balances === "object"
+            ? Object.fromEntries(Object.entries(saved.balances).map(([citizenId, balance]) => [
+              citizenId,
+              Math.max(0, Math.round(Number(balance) || 0))
+            ]))
+            : {};
+          const demoState = createDemoState();
+          balances[DEMO_CITIZEN] ??= demoState.balances[DEMO_CITIZEN];
+          const history = Array.isArray(saved.history) ? saved.history : [];
+          if (!history.some(entry => entry.citizenId === DEMO_CITIZEN)) {
+            history.push(...demoState.history);
+          }
+          return {
+            ...demoState,
+            ...saved,
+            balances,
+            history,
+            totalKg: Number.isFinite(Number(saved.totalKg)) ? Number(saved.totalKg) : demoState.totalKg,
+            totalTokens: Number.isFinite(Number(saved.totalTokens)) ? Number(saved.totalTokens) : demoState.totalTokens
+          };
+        } catch (error) {
+          console.error("No se pudieron cargar los datos guardados.", error);
+          return createDemoState();
+        }
+      }
+
+      function createDemoState() {
+        const date = new Date().toLocaleString("es-VE");
+        return {
+          balances: { [DEMO_CITIZEN]: 500 },
+          totalKg: 40,
+          totalTokens: 600,
+          history: [
+            {
+              citizenId: DEMO_CITIZEN,
+              title: "Canje de 100 tokens",
+              details: "Tasa de Aseo · USD 1,00 · Clave SVC-DEMO01",
+              code: "SVC-DEMO01",
+              date
+            },
+            {
+              citizenId: DEMO_CITIZEN,
+              title: "Entrega acreditada: +600 tokens",
+              details: "40 kg de Plásticos (PET/PE/PP) en Cancha de Figueroa; movimiento de ejemplo",
+              date
+            }
+          ]
+        };
+      }
+
+      function saveState() {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        } catch (error) {
+          console.error("No se pudieron guardar los cambios.", error);
+          showNotice("No fue posible guardar los cambios en este navegador.", true);
+          return false;
+        }
+        return true;
+      }
+
+      function resetDemo() {
+        if (!window.confirm("¿Reiniciar la demo y reemplazar los saldos e historial guardados en este navegador?")) return;
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(createDemoState()));
+          window.location.reload();
+        } catch (error) {
+          console.error("No se pudo reiniciar la demo.", error);
+          showNotice("No fue posible reiniciar la demo. Revisa el almacenamiento del navegador.", true);
+        }
+      }
+
+      function showNotice(message, isError = false) {
+        const notice = $("notice");
+        notice.textContent = message;
+        notice.classList.toggle("error", isError);
+        notice.classList.add("show");
+      }
+
+      function hideNotice() {
+        $("notice").classList.remove("show", "error");
+        $("notice").textContent = "";
+      }
+
+      function normalizeCitizenId(value) {
+        return value.trim().toUpperCase().replace(/\s+/g, "");
+      }
+
+      function isValidCitizenId(value) {
+        return /^[VEJPG]-?\d{5,9}$/.test(value);
+      }
+
+      function formatNumber(value, maximumFractionDigits = 1) {
+        return new Intl.NumberFormat("es-VE", { maximumFractionDigits }).format(value);
+      }
+
+      function formatUsd(value) {
+        return "USD " + new Intl.NumberFormat("es-VE", { maximumFractionDigits: 2 }).format(value);
+      }
+
+      function fillSelects() {
+        $("container-select").innerHTML = CONTAINERS
+          .map(point => `<option value="${point.id}">${point.name} — ${point.sector}</option>`)
+          .join("");
+        $("material-select").innerHTML = MATERIALS
+          .map(([name]) => `<option value="${name}">${name}</option>`)
+          .join("");
+      }
+
+      function tabsForRole(role) {
+        const tabs = [{ id: "containers", label: "Contenedores" }];
+        if (role === "admin") {
+          tabs.push(
+            { id: "routes", label: "Rutas" },
+            { id: "validation", label: "Validación de tokens" }
+          );
+        } else {
+          tabs.push({ id: "wallet", label: "Billetera" });
+        }
+        return tabs;
+      }
+
+      function setRole(role) {
+        currentRole = role;
+        const tabs = tabsForRole(role);
+        $("tabs").innerHTML = tabs.map((tab, index) =>
+          `<button type="button" role="tab" id="tab-${tab.id}" aria-controls="${tab.id}-panel" aria-selected="${index === 0}">${tab.label}</button>`
+        ).join("");
+        $("simulate-fill").hidden = role !== "admin";
+        $("tabs").querySelectorAll('[role="tab"]').forEach(button => {
+          button.addEventListener("click", () => activateSection(button.id.replace("tab-", "")));
+        });
+        activateSection("containers");
+      }
+
+      function activateSection(section) {
+        const allowed = tabsForRole(currentRole).some(tab => tab.id === section);
+        if (!allowed) return;
+        if (section !== "validation") stopScanner();
+        currentSection = section;
+        document.querySelectorAll(".panel").forEach(panel => {
+          panel.classList.toggle("active", panel.id === `${section}-panel`);
+        });
+        $("tabs").querySelectorAll('[role="tab"]').forEach(button => {
+          button.setAttribute("aria-selected", String(button.id === `tab-${section}`));
+        });
+        if (section === "containers") {
+          renderContainerMap();
+          scheduleMapResize(containersMap);
+        } else if (section === "routes") {
+          renderRouteMap();
+          scheduleMapResize(routesMap);
+        } else if (section === "wallet" && walletCitizen) {
+          renderWallet();
+        }
+      }
+
+      function scheduleMapResize(map) {
+        if (!map) return;
+        window.setTimeout(() => map.invalidateSize(), 100);
+      }
+
+      function mapAvailable() {
+        if (window.L) return true;
+        showNotice("No se pudo cargar Leaflet. Comprueba tu conexión e inténtalo de nuevo.", true);
+        return false;
+      }
+
+      function fillColor(fill) {
+        if (fill >= 80) return "#c24132";
+        if (fill >= 60) return "#c98b0b";
+        return "#176b4f";
+      }
+
+      function hasCoordinates(point) {
+        return Number.isFinite(point.lat) && Number.isFinite(point.lon);
+      }
+
+      function createBaseMap(elementId) {
+        if (!mapAvailable()) return null;
+        const map = L.map(elementId).setView([10.383, -66.970], 14);
+        L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}", {
+          attribution: "Tiles &copy; Esri &mdash; Sources: Esri, HERE, Garmin, OpenStreetMap contributors, and the GIS user community",
+          maxZoom: 19
+        }).addTo(map);
+        return map;
+      }
+
+      function ensureContainersMap() {
+        if (!containersMap) {
+          containersMap = createBaseMap("containers-map");
+        }
+      }
+
+      function renderContainerMap() {
+        ensureContainersMap();
+        if (!containersMap) return;
+        const firstRender = containerMarkers.length === 0;
+        containerMarkers.forEach(marker => marker.remove());
+        const locatedContainers = CONTAINERS.filter(hasCoordinates);
+        containerMarkers = locatedContainers.map(point => {
+          const marker = L.circleMarker([point.lat, point.lon], {
+            radius: 9,
+            color: "#fff",
+            weight: 2,
+            fillColor: fillColor(point.fill),
+            fillOpacity: 0.95
+          }).addTo(containersMap);
+          marker.bindPopup(
+            `<strong>${point.name}</strong><br>${point.sector}<br>Coordenadas de referencia: ${point.lat}, ${point.lon}<br>Llenado: ${point.fill}%`
+          );
+          return marker;
+        });
+        containerMarkers.push(L.marker([PLANT.lat, PLANT.lon]).addTo(containersMap).bindPopup(PLANT.name));
+        if (firstRender) {
+          const visibleLocations = [PLANT, ...locatedContainers].map(point => [point.lat, point.lon]);
+          containersMap.fitBounds(L.latLngBounds(visibleLocations), { padding: [25, 25], maxZoom: 14 });
+        }
+        $("containers-map-status").textContent =
+          `${locatedContainers.length} de ${CONTAINERS.length} puntos con coordenadas de referencia · ${CONTAINERS.length - locatedContainers.length} pendientes.`;
+        renderContainerTable();
+        if (nearestRouteLayers.length) {
+          nearestRouteLayers.forEach(layer => layer.bringToFront());
+        }
+      }
+
+      function renderContainerTable() {
+        $("containers-table").innerHTML = CONTAINERS.map(point =>
+          `<tr><td>${point.name}</td><td>${point.sector}</td><td>${hasCoordinates(point) ? `${point.lat}, ${point.lon}` : "Pendiente de coordenadas"}</td><td>${point.fill}%</td></tr>`
+        ).join("");
+      }
+
+      function simulateFill() {
+        CONTAINERS.forEach(point => {
+          point.fill = Math.min(100, point.fill + Math.floor(Math.random() * 16));
+        });
+        renderContainerMap();
+        if (routesMap) renderRouteMap();
+        showNotice("Se actualizaron los niveles de llenado simulados.");
+      }
+
+      function distance(a, b) {
+        const radians = Math.PI / 180;
+        const dLat = (b.lat - a.lat) * radians;
+        const dLon = (b.lon - a.lon) * radians;
+        const lat1 = a.lat * radians;
+        const lat2 = b.lat * radians;
+        const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+        return 6371 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+      }
+
+      function clearNearestRoute() {
+        nearestRouteRequestId++;
+        if (nearestRouteController) {
+          nearestRouteController.abort();
+          nearestRouteController = null;
+        }
+        nearestRouteLayers.forEach(layer => layer.remove());
+        nearestRouteLayers = [];
+      }
+
+      function fallbackDemoOrigin() {
+        return { lat: 10.3745, lon: -66.9537, accuracy: 30 };
+      }
+
+      function traceNearestContainer() {
+        ensureContainersMap();
+        if (!containersMap) return;
+        if (!navigator.geolocation) {
+          $("nearest-route-status").textContent = "Este navegador no permite obtener tu ubicación. Se usará una ubicación simulada para la demo.";
+          const fallbackOrigin = fallbackDemoOrigin();
+          nearestRouteRequestId += 1;
+          traceRouteFrom(fallbackOrigin, "simulada", nearestRouteRequestId);
+          return;
+        }
+
+        clearNearestRoute();
+        const requestId = nearestRouteRequestId;
+        $("nearest-route-status").textContent = "Solicitando ubicación…";
+        navigator.geolocation.getCurrentPosition(position => {
+          if (requestId !== nearestRouteRequestId) return;
+          traceRouteFrom({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          }, "GPS", requestId);
+        }, error => {
+          if (requestId !== nearestRouteRequestId) return;
+          const fallbackOrigin = fallbackDemoOrigin();
+          if (error.code === error.PERMISSION_DENIED) {
+            $("nearest-route-status").textContent = "Permiso de ubicación denegado. Se usará una ubicación simulada para continuar la demo.";
+          } else if (error.code === error.POSITION_UNAVAILABLE) {
+            $("nearest-route-status").textContent = "No se pudo determinar tu ubicación. Se usará una ubicación simulada para continuar la demo.";
+          } else if (error.code === error.TIMEOUT) {
+            $("nearest-route-status").textContent = "La solicitud de ubicación agotó el tiempo de espera. Se usará una ubicación simulada para continuar la demo.";
+          } else {
+            $("nearest-route-status").textContent = "Ocurrió un error al obtener la ubicación. Se usará una ubicación simulada para continuar la demo.";
+          }
+          nearestRouteRequestId += 1;
+          traceRouteFrom(fallbackOrigin, "simulada", nearestRouteRequestId);
+        }, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+      }
+
+      function simulateLocation(event) {
+        event.preventDefault();
+        ensureContainersMap();
+        if (!containersMap) return;
+        const simulatedOrigin = {
+          lat: Number($("simulated-latitude").value),
+          lon: Number($("simulated-longitude").value),
+          accuracy: 30
+        };
+        if (!Number.isFinite(simulatedOrigin.lat) || !Number.isFinite(simulatedOrigin.lon)
+          || simulatedOrigin.lat < -90 || simulatedOrigin.lat > 90
+          || simulatedOrigin.lon < -180 || simulatedOrigin.lon > 180) {
+          $("nearest-route-status").textContent = "Ingresa una latitud entre -90 y 90 y una longitud entre -180 y 180.";
+          return;
+        }
+        clearNearestRoute();
+        $("nearest-route-status").textContent = `Usando ubicación simulada: ${simulatedOrigin.lat.toFixed(5)}, ${simulatedOrigin.lon.toFixed(5)}. Calculando ruta…`;
+        traceRouteFrom(simulatedOrigin, "simulada", nearestRouteRequestId);
+      }
+
+      function updatePhotoPreview(inputId, previewId, key) {
+        const file = $(inputId).files[0];
+        const preview = $(previewId);
+        if (photoPreviewUrls[key]) {
+          URL.revokeObjectURL(photoPreviewUrls[key]);
+          photoPreviewUrls[key] = null;
+        }
+        if (!file || !file.type.startsWith("image/")) {
+          preview.removeAttribute("src");
+          preview.classList.remove("visible");
+          return;
+        }
+        photoPreviewUrls[key] = URL.createObjectURL(file);
+        preview.src = photoPreviewUrls[key];
+        preview.classList.add("visible");
+      }
+
+      function clearPhotoPreviews() {
+        [["scale-photo-preview", "scale"], ["waste-photo-preview", "waste"]].forEach(([previewId, key]) => {
+          if (photoPreviewUrls[key]) URL.revokeObjectURL(photoPreviewUrls[key]);
+          photoPreviewUrls[key] = null;
+          $(previewId).removeAttribute("src");
+          $(previewId).classList.remove("visible");
+        });
+      }
+
+      async function traceRouteFrom(origin, source, requestId) {
+        const locatedContainers = CONTAINERS.filter(hasCoordinates);
+        if (!locatedContainers.length) {
+          $("nearest-route-status").textContent = "No hay puntos con coordenadas disponibles para calcular la ruta.";
+          return;
+        }
+        const nearest = locatedContainers.reduce((best, point) =>
+          distance(origin, point) < distance(origin, best) ? point : best
+        );
+        const coordinates = `${origin.lon},${origin.lat};${nearest.lon},${nearest.lat}`;
+        const controller = new AbortController();
+        nearestRouteController = controller;
+        const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+        $("nearest-route-status").textContent =
+          `Ubicación ${source}: ${origin.lat.toFixed(5)}, ${origin.lon.toFixed(5)} (±${formatNumber(origin.accuracy)} m). Calculando ruta vial al punto más cercano…`;
+
+        try {
+          const response = await fetch(
+            `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`,
+            { signal: controller.signal }
+          );
+          if (!response.ok) throw new Error(`El servicio de rutas respondió HTTP ${response.status}.`);
+          const result = await response.json();
+          const route = result.routes && result.routes[0];
+          if (result.code !== "Ok" || !route || !route.geometry || !Array.isArray(route.geometry.coordinates)) {
+            throw new Error("No se encontró un recorrido vial para la ubicación y el contenedor.");
+          }
+          if (requestId !== nearestRouteRequestId) return;
+          const roadPoints = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+          if (roadPoints.length < 2) throw new Error("El servicio devolvió una ruta vial incompleta.");
+
+          nearestRouteLayers.push(
+            L.circleMarker([origin.lat, origin.lon], {
+              radius: 8, color: "#fff", weight: 2, fillColor: "#2878b5", fillOpacity: 1
+            }).addTo(containersMap)
+              .bindPopup(`Ubicación ${source}<br>Precisión estimada: ${formatNumber(origin.accuracy)} m`)
+              .openPopup()
+          );
+          nearestRouteLayers.push(
+            L.circle([origin.lat, origin.lon], {
+              radius: origin.accuracy,
+              color: "#2878b5",
+              weight: 1,
+              fillColor: "#2878b5",
+              fillOpacity: 0.12
+            }).addTo(containersMap)
+          );
+          nearestRouteLayers.push(
+            L.circleMarker([nearest.lat, nearest.lon], {
+              radius: 10, color: "#fff", weight: 2, fillColor: fillColor(nearest.fill), fillOpacity: 1
+            }).addTo(containersMap).bindPopup(`${nearest.name}<br>${nearest.fill}% de llenado`)
+          );
+          nearestRouteLayers.push(
+            L.polyline(roadPoints, { color: "#2878b5", weight: 5, opacity: 0.9 }).addTo(containersMap)
+          );
+          containersMap.fitBounds(L.latLngBounds(roadPoints).extend([origin.lat, origin.lon]), { padding: [25, 25] });
+          $("nearest-route-status").textContent =
+            `Ubicación ${source} (precisión ${formatNumber(origin.accuracy)} m). Ruta vial al punto más cercano según las coordenadas de referencia: ${nearest.name} · ${formatNumber(route.distance / 1000)} km.`;
+        } catch (error) {
+          if (requestId !== nearestRouteRequestId) return;
+          const detail = error.name === "AbortError"
+            ? "La consulta al servicio de rutas agotó el tiempo de espera."
+            : error.message;
+          $("nearest-route-status").textContent = `No se pudo trazar la ruta vial. ${detail}`;
+          console.error("Error al trazar la ruta al contenedor más cercano.", error);
+        } finally {
+          window.clearTimeout(timeoutId);
+          if (nearestRouteController === controller) nearestRouteController = null;
+        }
+      }
+
+      function ensureRoutesMap() {
+        if (!routesMap) {
+          routesMap = createBaseMap("routes-map");
+        }
+      }
+
+      async function renderRouteMap() {
+        ensureRoutesMap();
+        if (!routesMap) return;
+        const requestId = ++routeRequestId;
+        routeLayers.forEach(layer => layer.remove());
+        routeLayers = [];
+        const pending = CONTAINERS.filter(point => hasCoordinates(point) && point.fill > 80);
+        const unlocatedHighFill = CONTAINERS.filter(point => !hasCoordinates(point) && point.fill > 80).length;
+        let current = PLANT;
+        let remaining = [...pending];
+        const stops = [];
+        while (remaining.length) {
+          remaining.sort((a, b) => distance(current, a) - distance(current, b));
+          const next = remaining.shift();
+          stops.push(next);
+          current = next;
+        }
+        routeLayers.push(L.marker([PLANT.lat, PLANT.lon]).addTo(routesMap).bindPopup(PLANT.name));
+        stops.forEach(point => {
+          routeLayers.push(
+            L.circleMarker([point.lat, point.lon], {
+              radius: 9,
+              color: "#fff",
+              weight: 2,
+              fillColor: fillColor(point.fill),
+              fillOpacity: 1
+            }).addTo(routesMap).bindPopup(`${point.name}<br>Llenado: ${point.fill}%`)
+          );
+        });
+        $("route-stops").replaceChildren(...stops.map(point => {
+          const item = document.createElement("li");
+          item.textContent = `${point.name} — ${point.fill}%`;
+          return item;
+        }));
+        if (!stops.length) {
+          routesMap.setView([PLANT.lat, PLANT.lon], 14);
+          $("route-status").textContent =
+            `No hay contenedores con más de 80% de llenado y coordenadas disponibles.${unlocatedHighFill ? ` ${unlocatedHighFill} punto(s) con ubicación pendiente excluido(s).` : ""}`;
+          return;
+        }
+
+        $("route-status").textContent = "Calculando recorrido vial…";
+        const coordinates = [PLANT, ...stops, PLANT]
+          .map(point => `${point.lon},${point.lat}`)
+          .join(";");
+        const url = `https://router.project-osrm.org/route/v1/driving/${coordinates}?overview=full&geometries=geojson&steps=false`;
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), 15000);
+        try {
+          const response = await fetch(url, { signal: controller.signal });
+          if (!response.ok) throw new Error(`El servicio de rutas respondió HTTP ${response.status}.`);
+          const result = await response.json();
+          const route = result.routes && result.routes[0];
+          if (result.code !== "Ok" || !route || !route.geometry || !Array.isArray(route.geometry.coordinates)) {
+            throw new Error("El servicio no encontró una ruta vial para los puntos seleccionados.");
+          }
+          if (requestId !== routeRequestId) return;
+          const roadPoints = route.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+          if (roadPoints.length < 2) throw new Error("El servicio devolvió una ruta vial incompleta.");
+          routeLayers.push(L.polyline(roadPoints, { color: "#2878b5", weight: 5, opacity: 0.9 }).addTo(routesMap));
+          routesMap.fitBounds(L.latLngBounds(roadPoints), { padding: [25, 25] });
+          $("route-status").textContent =
+            `${stops.length} contenedor(es) · ${formatNumber(route.distance / 1000)} km por vías.${unlocatedHighFill ? ` ${unlocatedHighFill} punto(s) con ubicación pendiente excluido(s).` : ""}`;
+        } catch (error) {
+          if (requestId !== routeRequestId) return;
+          const detail = error.name === "AbortError"
+            ? "La consulta al servicio de rutas agotó el tiempo de espera."
+            : error.message;
+          $("route-status").textContent = `No se pudo calcular la ruta vial. ${detail} Inténtalo de nuevo cuando haya conexión.`;
+          console.error("Error al calcular la ruta vial.", error);
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
+      }
+
+      function renderWallet() {
+        if (!walletCitizen) return;
+        $("wallet-content").hidden = false;
+        const balance = Number(state.balances[walletCitizen] || 0);
+        $("wallet-owner").textContent = `Ciudadano: ${walletCitizen}`;
+        $("wallet-balance").textContent = `${formatNumber(balance)} tokens`;
+        $("wallet-usd").textContent = `Equivale a ${formatUsd(balance * 0.01)} (1 token = USD 0,01)`;
+        $("qr").replaceChildren();
+        if (window.QRCode) {
+          new QRCode($("qr"), { text: `RECICLA|${walletCitizen}`, width: 120, height: 120 });
+        } else {
+          $("qr").textContent = "No se pudo cargar el generador QR.";
+        }
+        renderHistory();
+      }
+
+      function renderHistory() {
+        const records = state.history.filter(entry => entry.citizenId === walletCitizen);
+        const list = $("history-list");
+        list.replaceChildren();
+        if (!records.length) {
+          const empty = document.createElement("li");
+          empty.className = "muted";
+          empty.textContent = "Sin movimientos registrados.";
+          list.append(empty);
+          return;
+        }
+        records.slice(0, 30).forEach(entry => {
+          const item = document.createElement("li");
+          const title = document.createElement("strong");
+          const details = document.createElement("small");
+          title.textContent = entry.title;
+          details.textContent = `${entry.details} · ${entry.date}`;
+          item.append(title, details);
+          list.append(item);
+        });
+      }
+
+      function addHistory(entry) {
+        state.history.unshift({ ...entry, date: new Date().toLocaleString("es-VE") });
+        state.history = state.history.slice(0, 200);
+      }
+
+      function stopScanner() {
+        if (scannerTimer !== null) {
+          window.clearInterval(scannerTimer);
+          scannerTimer = null;
+        }
+        if (scannerStream) {
+          scannerStream.getTracks().forEach(track => track.stop());
+          scannerStream = null;
+        }
+        const video = $("qr-video");
+        if (video) {
+          video.pause();
+          video.srcObject = null;
+          video.style.display = "none";
+        }
+        const fallbackReader = $("qr-fallback-reader");
+        if (fallbackReader) fallbackReader.style.display = "none";
+        if (scannerFallback) {
+          const fallback = scannerFallback;
+          scannerFallback = null;
+          fallback.stop()
+            .then(() => fallback.clear())
+            .catch(error => console.error("No se pudo detener el escáner QR.", error));
+        }
+        scannerBusy = false;
+        const button = $("scan-qr");
+        if (button) button.textContent = "📷 Escanear QR de Billetera";
+      }
+
+      function loadFallbackScanner() {
+        if (window.Html5Qrcode) return Promise.resolve();
+        if (fallbackLibraryPromise) return fallbackLibraryPromise;
+        fallbackLibraryPromise = new Promise((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://unpkg.com/html5-qrcode@2.3.8";
+          script.onload = () => {
+            if (window.Html5Qrcode) {
+              resolve();
+              return;
+            }
+            fallbackLibraryPromise = null;
+            reject(new Error("La biblioteca de lectura QR no está disponible."));
+          };
+          script.onerror = () => {
+            fallbackLibraryPromise = null;
+            reject(new Error("No se pudo cargar la biblioteca de lectura QR."));
+          };
+          document.head.append(script);
+        });
+        return fallbackLibraryPromise;
+      }
+
+      async function startFallbackScanner() {
+        await loadFallbackScanner();
+        if (currentRole !== "admin" || currentSection !== "validation") return;
+        const reader = $("qr-fallback-reader");
+        reader.style.display = "block";
+        const scanner = new Html5Qrcode("qr-fallback-reader");
+        scannerFallback = scanner;
+        $("scan-qr").textContent = "Detener escáner";
+        $("umsg").textContent = "Apunta la cámara al QR de la billetera.";
+        try {
+          await scanner.start(
+            { facingMode: "environment" },
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            async decodedText => {
+              if (scannerFallback !== scanner) return;
+              scannerFallback = null;
+              try {
+                await scanner.stop();
+                await scanner.clear();
+              } catch (error) {
+                console.error("No se pudo detener el escáner después de leer el QR.", error);
+                $("umsg").textContent = "Se leyó el QR, pero no se pudo detener la cámara correctamente.";
+                return;
+              }
+              reader.style.display = "none";
+              $("scan-qr").textContent = "📷 Escanear QR de Billetera";
+              setUser(decodedText.replace("RECICLA|", ""));
+            },
+            () => {}
+          );
+        } catch (error) {
+          if (scannerFallback === scanner) {
+            scannerFallback = null;
+            reader.style.display = "none";
+            try {
+              await scanner.clear();
+            } catch (clearError) {
+              console.error("No se pudo limpiar el lector QR.", clearError);
+            }
+          }
+          throw error;
+        }
+      }
+
+      function setUser(value) {
+        const citizenId = normalizeCitizenId(String(value || ""));
+        if (!isValidCitizenId(citizenId)) {
+          scannedCitizenId = "";
+          $("scan-result").hidden = true;
+          $("umsg").textContent = "Ingresa una cédula válida (por ejemplo, V-12345678) o vuelve a escanear la billetera.";
+          return;
+        }
+        scannedCitizenId = citizenId;
+        $("manual-citizen-id").value = citizenId;
+        $("scanned-citizen-id").textContent = citizenId;
+        $("scan-result").hidden = false;
+        $("umsg").textContent = `Ciudadano identificado: ${citizenId}.`;
+      }
+
+      function identifyManualCitizen() {
+        setUser($("manual-citizen-id").value);
+      }
+
+      async function startScanner() {
+        const message = $("umsg");
+        if (scannerStarting) return;
+        if (scannerStream || scannerFallback) {
+          stopScanner();
+          message.textContent = "Escáner detenido. Vuelve a escanear para identificar al ciudadano.";
+          return;
+        }
+        scannedCitizenId = "";
+        $("scan-result").hidden = true;
+        $("scanned-citizen-id").textContent = "";
+
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          message.textContent = "No se puede acceder a la cámara en este navegador o contexto.";
+          return;
+        }
+
+        scannerStarting = true;
+        try {
+          if (!("BarcodeDetector" in window)) {
+            await startFallbackScanner();
+            return;
+          }
+          const detector = new BarcodeDetector({ formats: ["qr_code"] });
+          scannerStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: { ideal: "environment" } },
+            audio: false
+          });
+          if (currentRole !== "admin" || currentSection !== "validation") {
+            stopScanner();
+            return;
+          }
+          const video = $("qr-video");
+          video.srcObject = scannerStream;
+          video.style.display = "block";
+          await video.play();
+          $("scan-qr").textContent = "Detener escáner";
+          message.textContent = "Apunta la cámara al QR de la billetera.";
+          scannerTimer = window.setInterval(async () => {
+            if (scannerBusy || !scannerStream || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) return;
+            scannerBusy = true;
+            try {
+              const codes = await detector.detect(video);
+              if (!codes.length) return;
+              const citizenId = (codes[0].rawValue || "").replace("RECICLA|", "");
+              stopScanner();
+              setUser(citizenId);
+            } catch (error) {
+              console.error("No se pudo leer el código QR.", error);
+              stopScanner();
+              message.textContent = "No se pudo leer el QR. Intenta escanear de nuevo.";
+            } finally {
+              scannerBusy = false;
+            }
+          }, 300);
+        } catch (error) {
+          stopScanner();
+          console.error("No se pudo iniciar la cámara.", error);
+          const errorMessage = String(error.message || error);
+          if (error.name === "NotAllowedError" || error.name === "SecurityError" || /permission|denied|notallowed/i.test(errorMessage)) {
+            message.textContent = "Permiso de cámara denegado. Habilítalo en el navegador para escanear.";
+          } else if (error.name === "NotFoundError" || error.name === "OverconstrainedError") {
+            message.textContent = "No se encontró una cámara disponible.";
+          } else if (error.name === "NotReadableError") {
+            message.textContent = "La cámara está ocupada o no se pudo iniciar.";
+          } else {
+            message.textContent = error.message || "No se pudo iniciar la cámara.";
+          }
+        } finally {
+          scannerStarting = false;
+        }
+      }
+
+      function deposit(event) {
+        event.preventDefault();
+        const message = $("deposit-message");
+        message.textContent = "";
+        const citizenId = scannedCitizenId;
+        if (!isValidCitizenId(citizenId)) {
+          message.textContent = "Primero escanea el QR de la billetera del ciudadano.";
+          return;
+        }
+        const scalePhoto = $("scale-photo").files[0];
+        const wastePhoto = $("waste-photo").files[0];
+        if (!scalePhoto || !wastePhoto) {
+          message.textContent = "Error: debes subir la foto de la báscula y la foto de la basura antes de acreditar tokens.";
+          return;
+        }
+        if (!scalePhoto.type.startsWith("image/") || !wastePhoto.type.startsWith("image/")) {
+          message.textContent = "Ambas evidencias deben ser archivos de imagen.";
+          return;
+        }
+        const weight = Number($("weight").value);
+        if (!Number.isFinite(weight) || weight < 0.1 || weight > 200) {
+          message.textContent = "El peso debe estar entre 0,1 y 200 kg.";
+          return;
+        }
+        const material = $("material-select").value;
+        const rate = MATERIALS.find(([name]) => name === material)?.[1];
+        if (rate === undefined) {
+          message.textContent = "Selecciona un material válido.";
+          return;
+        }
+        const tokens = Math.round(weight / 10 * rate * Number($("purity").value));
+        if (tokens < 1) {
+          message.textContent = "Con ese peso no se genera al menos 1 token. Aumenta el peso para acreditar.";
+          return;
+        }
+        const container = CONTAINERS[Number($("container-select").value)];
+        state.balances[citizenId] = Math.round(Number(state.balances[citizenId]) || 0) + tokens;
+        state.totalKg = Number(state.totalKg || 0) + weight;
+        state.totalTokens = Number(state.totalTokens || 0) + tokens;
+        addHistory({
+          citizenId,
+          title: `Entrega acreditada: +${formatNumber(tokens)} tokens`,
+          details: `${formatNumber(weight)} kg de ${material} en ${container.name}; evidencias: ${scalePhoto.name} y ${wastePhoto.name}`
+        });
+        if (!saveState()) return;
+        message.textContent = `Entrega validada. Se acreditaron ${formatNumber(tokens)} tokens a ${citizenId}.`;
+        scannedCitizenId = "";
+        $("scan-result").hidden = true;
+        $("scanned-citizen-id").textContent = "";
+        $("umsg").textContent = "Entrega registrada. Escanea el siguiente QR para continuar.";
+        $("deposit-form").reset();
+        clearPhotoPreviews();
+        $("weight").value = "5";
+      }
+
+      function generateRedemptionCode() {
+        const alphabet = "0123456789ABCDEF";
+        let code;
+        do {
+          let hex = "";
+          if (window.crypto?.getRandomValues) {
+            const bytes = new Uint8Array(3);
+            window.crypto.getRandomValues(bytes);
+            hex = Array.from(bytes, byte => byte.toString(16).padStart(2, "0")).join("").toUpperCase();
+          } else {
+            for (let index = 0; index < 6; index++) {
+              hex += alphabet[Math.floor(Math.random() * alphabet.length)];
+            }
+          }
+          code = `SVC-${hex}`;
+        } while (state.history.some(entry => entry.code === code));
+        return code;
+      }
+
+      function redeem(event) {
+        event.preventDefault();
+        if (!walletCitizen) return;
+        const amount = Number($("redeem-amount").value);
+        const balance = Number(state.balances[walletCitizen] || 0);
+        if (!Number.isInteger(amount) || amount <= 0) {
+          showNotice("Indica una cantidad entera de tokens mayor que cero.", true);
+          return;
+        }
+        if (amount > balance) {
+          showNotice("Saldo insuficiente para realizar el canje.", true);
+          return;
+        }
+        const service = $("service-select").value;
+        if (!["Tasa de Aseo", "Electricidad", "Agua"].includes(service)) {
+          showNotice("Selecciona un servicio válido.", true);
+          return;
+        }
+        const code = generateRedemptionCode();
+        state.balances[walletCitizen] = balance - amount;
+        addHistory({
+          citizenId: walletCitizen,
+          code,
+          title: `Canje de ${amount} tokens`,
+          details: `${service} · ${formatUsd(amount * 0.01)} · Clave ${code}`
+        });
+        if (!saveState()) return;
+        $("redeem-code").textContent = code;
+        $("redeem-detail").textContent = `${amount} tokens aplicados a ${service}`;
+        $("redeem-key").classList.add("show");
+        hideNotice();
+        renderWallet();
+      }
+
+      function consultWallet() {
+        hideNotice();
+        const citizenId = normalizeCitizenId($("wallet-id").value);
+        if (!isValidCitizenId(citizenId)) {
+          $("wallet-content").hidden = true;
+          showNotice("Ingresa una cédula válida (por ejemplo, V-12345678).", true);
+          return;
+        }
+        walletCitizen = citizenId;
+        $("wallet-id").value = citizenId;
+        $("redeem-key").classList.remove("show");
+        renderWallet();
+      }
+
+      function useDemoCitizen() {
+        $("wallet-id").value = DEMO_CITIZEN;
+        consultWallet();
+      }
+
+      function init() {
+        fillSelects();
+        renderContainerTable();
+        setRole("citizen");
+
+        $("reset-demo").addEventListener("click", resetDemo);
+        $("role-select").addEventListener("change", event => {
+          hideNotice();
+          setRole(event.target.value);
+        });
+        $("simulate-fill").addEventListener("click", simulateFill);
+        $("nearest-route-button").addEventListener("click", traceNearestContainer);
+        $("simulate-location-form").addEventListener("submit", simulateLocation);
+        $("scan-qr").addEventListener("click", startScanner);
+        $("manual-citizen-submit").addEventListener("click", identifyManualCitizen);
+        $("deposit-form").addEventListener("submit", deposit);
+        $("scale-photo").addEventListener("change", () =>
+          updatePhotoPreview("scale-photo", "scale-photo-preview", "scale")
+        );
+        $("waste-photo").addEventListener("change", () =>
+          updatePhotoPreview("waste-photo", "waste-photo-preview", "waste")
+        );
+        $("load-wallet").addEventListener("click", consultWallet);
+        $("use-demo-citizen").addEventListener("click", useDemoCitizen);
+        $("wallet-id").addEventListener("keydown", event => {
+          if (event.key === "Enter") consultWallet();
+        });
+        $("redeem-form").addEventListener("submit", redeem);
+        window.addEventListener("offline", () => {
+          $("connectivity-status").textContent = "Sin conexión: usa datos móviles o el video de respaldo.";
+          $("connectivity-status").hidden = false;
+        });
+        window.addEventListener("online", () => {
+          $("connectivity-status").hidden = true;
+          $("connectivity-status").textContent = "";
+        });
+        if (!navigator.onLine) {
+          $("connectivity-status").textContent = "Sin conexión: usa datos móviles o el video de respaldo.";
+          $("connectivity-status").hidden = false;
+        }
+      }
+
+      if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init, { once: true });
+      } else {
+        init();
+      }
+    })();
+  </script>
+</body>
+</html>
