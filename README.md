@@ -8,7 +8,7 @@ Proyecto postulado a **Innova Ciudad** (ciudades inteligentes) de la plataforma 
 
 | Carpeta | Qué contiene |
 | --- | --- |
-| `demo/index.html` | Aplicación web de demostración (HTML, CSS y JavaScript en un solo archivo): mapa de los 16 puntos, ruta de recolección, ruta al contenedor más cercano, escaneo de QR, entrega con fotos, tokens y canje. |
+| `index.html` | Aplicación web de demostración (HTML, CSS y JavaScript en un solo archivo): mapa de los 16 puntos, ruta de recolección, ruta al contenedor más cercano, escaneo de QR, entrega con fotos, tokens y canje. |
 | `docs/` | Ficha técnica (Word), documento del proyecto (PDF) y presupuesto de prototipos (PDF). |
 | `docs/imagenes/` | Esquema del contenedor inteligente y esquema conceptual de la compactadora. |
 | `docs/fuentes/` | Anteproyecto y resumen de diapositivas originales. |
